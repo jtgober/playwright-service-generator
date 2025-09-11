@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "outDir": "dist",
+    "resolveJsonModule": true,
+    "module": "nodenext",
+    "target": "esnext",
+    "types": ["node"],
+    "esModuleInterop": true,
+    "moduleResolution": "nodenext",
+    "sourceMap": true,
+    "declaration": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+    "noUncheckedSideEffectImports": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true
+  },
+  "include": ["src", "package.json"]
+}
