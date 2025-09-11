@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import dotenv from 'dotenv';
+import { toCamelCaseMethodName } from './cleaner-method-names.js'
 
 // Load environment variables
 dotenv.config();
@@ -52,11 +53,11 @@ async function generateServices({ swaggerUrl, outputDir, baseUrl }: GenerateOpti
   try {
     console.log(`🔍 Fetching Swagger spec from ${swaggerUrl}...`);
     const res = await fetch(swaggerUrl);
-    
+
     if (!res.ok) {
       throw new Error(`Failed to fetch Swagger spec: ${res.statusText}`);
     }
-    
+
     const swagger = await res.json();
     console.log('✅ Successfully fetched Swagger spec');
 
@@ -67,9 +68,9 @@ async function generateServices({ swaggerUrl, outputDir, baseUrl }: GenerateOpti
       for (const [method, details] of Object.entries<any>(methods)) {
         const tag = details.tags?.[0] || 'Default';
         if (!services[tag]) services[tag] = [];
-        services[tag].push({ 
-          route, 
-          method, 
+        services[tag].push({
+          route,
+          method,
           operationId: details.operationId,
           parameters: details.parameters,
           description: details.description || ''
@@ -85,42 +86,43 @@ async function generateServices({ swaggerUrl, outputDir, baseUrl }: GenerateOpti
 
     // Generate service classes
     for (const [tag, endpoints] of Object.entries(services)) {
-let content = `export class ${tag}Service {
+      let content = `export class ${tag}Service {
 `;
 
-for (const ep of endpoints) {
-  // Sanitize method name
-  const methodName = ep.operationId || `${ep.method}${ep.route.replace(/[\/{}]/g, '_')}`;
+      for (const ep of endpoints) {
+        // Sanitize method name
+        const methodName = toCamelCaseMethodName(ep.method, ep.route, ep.operationId);
 
-  // Detect path params
-  const pathParamsMatches = [...ep.route.matchAll(/{(.*?)}/g)];
-  const pathParams = pathParamsMatches.map(m => m[1]);
 
-  // Decide if this method needs a data parameter
-  const needsData = ['post', 'put', 'patch'].includes(ep.method.toLowerCase());
+        // Detect path params
+        const pathParamsMatches = [...ep.route.matchAll(/{(.*?)}/g)];
+        const pathParams = pathParamsMatches.map(m => m[1]);
 
-  // Build function parameter string
-  const paramsList = ['request', ...pathParams];
-  if (needsData) paramsList.push('data?: any');
+        // Decide if this method needs a data parameter
+        const needsData = ['post', 'put', 'patch'].includes(ep.method.toLowerCase());
 
-  const paramsString = paramsList.join(', ');
+        // Build function parameter string
+        const paramsList = ['request', ...pathParams];
+        if (needsData) paramsList.push('data?: any');
 
-  // Replace {param} with ${param} for template literals
-  let routeWithTemplate = ep.route.replace(/{(.*?)}/g, (_:any, p:any) => `\${${p}}`);
+        const paramsString = paramsList.join(', ');
 
-  // Build method body conditionally
-  const secondArg = needsData ? '{ data }' : ''; 
+        // Replace {param} with ${param} for template literals
+        let routeWithTemplate = ep.route.replace(/{(.*?)}/g, (_: any, p: any) => `\${${p}}`);
 
-  // Construct method
-  content += `
+        // Build method body conditionally
+        const secondArg = needsData ? '{ data }' : '';
+
+        // Construct method
+        content += `
   async ${methodName}(${paramsString}) {
     const res = await request.${ep.method}(\`${routeWithTemplate}\`${secondArg ? `, ${secondArg}` : ''});
     return res;
   }
 `;
-}
+      }
 
-content += `}
+      content += `}
 `;
       const outputPath = path.join(absoluteOutputDir, `${tag}Service.ts`);
       fs.writeFileSync(outputPath, content, 'utf8');
