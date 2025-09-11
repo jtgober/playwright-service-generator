@@ -1,22 +1,30 @@
 {
-  "name": "auto-service-creator",
-  "version": "1.0.0",
-  "description": "Generates Playwright API services from Swagger",
+  "name": "playwright-service-generator",
+  "version": "0.0.1",
+  "description": "Generates Playwright API services from Swagger/OpenAPI specifications",
   "main": "dist/src/index.js",
   "type": "module",
-    "bin": {
+  "bin": {
     "generate-services": "dist/src/index.js"
   },
   "scripts": {
     "build": "tsc",
-    "test": "node dist/src/index.js"
+    "start": "tsx src/index.ts --swaggerUrl https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json",
+    "prepare": "npm run build",
+    "test": "playwright test"
   },
-  "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@playwright/test": "^1.39.0",
     "@types/node": "^24.3.1",
+    "@types/yargs": "^17.0.32",
     "ts-node": "^10.9.2",
+    "tsx": "^4.7.1",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "yargs": "^17.7.2"
   }
 }
