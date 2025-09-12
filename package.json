@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "start": "tsx src/index.ts --swaggerUrl https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json",
+    "generate": "tsx src/index.ts --swaggerUrl https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json",
     "prepare": "npm run build",
     "test": "playwright test"
   },

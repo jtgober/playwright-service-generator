@@ -22,20 +22,17 @@ interface GenerateOptions {
 interface Arguments {
   'swagger-url': string;
   'output-dir': string;
-  'base-url'?: string;
 }
 
 const argv = yargs(hideBin(process.argv))
   .option('swagger-url', { alias: 's', type: 'string', default: process.env.SWAGGER_URL })
   .option('output-dir', { alias: 'o', type: 'string', default: './services' })
-  .option('base-url', { alias: 'b', type: 'string', default: process.env.API_BASE_URL })
   .help()
   .parseSync() as Arguments;
 
 const options: any = {
   swaggerUrl: argv['swagger-url'],
   outputDir: argv['output-dir'],
-  baseUrl: argv['base-url']
 };
 
 async function generateServices({ swaggerUrl, outputDir }: GenerateOptions): Promise<string[]> {
@@ -90,7 +87,7 @@ async function generateServices({ swaggerUrl, outputDir }: GenerateOptions): Pro
 }
 
 async function main() {
-console.log(`
+  console.log(`
                  _..--+~/@-@--.
            _-=~      (  .    )
         _-~     _.--=.\\ \''''
