@@ -1,7 +1,7 @@
 # Playwright Service Generator
 
-Generate strongly-typed **Playwright API service classes** from your OpenAPI specification.  
-This package converts your API endpoints into clean, camelCase methods (removing `ApiV1` prefixes and other noise).
+Generate **Playwright API service classes** from your OpenAPI specification.  
+This package converts your API endpoints into clean, camelCase methods.
 
 ## 🚀 Features
 
