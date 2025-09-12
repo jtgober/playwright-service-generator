@@ -1,8 +1,8 @@
-export function toCamelCaseMethodName(
+export const toCamelCaseMethodName = (
   method: string,
   route?: string,
   operationId?: string
-): string {
+): string => {
   if (operationId) return operationId;
 
   if (!route) return method.toLowerCase(); // fallback if route is undefined
