@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { toCamelCase } from './naming.js';
+import { toCamelCase } from './method-naming.js';
 
 export const generateBaseFile = (services: string[], testsDir: string) => {
     const outputPath = path.resolve(process.cwd(), testsDir);
@@ -15,7 +15,7 @@ export const generateBaseFile = (services: string[], testsDir: string) => {
 
     let extendBlock = `export const test = base.extend<MyFixtures>({\n`;
     extendBlock += services.map(s =>
-        `  ${toCamelCase(s)}: async ({ request }, use) => {\n    const service = new ${s}(request);\n    await use(service);\n  }`
+        `  ${toCamelCase(s)}: async ({ }, use) => {\n    const service = new ${s}();\n    await use(service);\n  }`
     ).join(',\n');
     extendBlock += `\n});\n\n`;
 

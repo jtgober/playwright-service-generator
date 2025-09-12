@@ -5,8 +5,8 @@ import { fileURLToPath } from 'url';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import dotenv from 'dotenv';
-import { toCamelCaseMethodName } from './utils/naming.js';
-import { generateBaseFile } from './utils/file.js';
+import { toCamelCaseMethodName } from './utils/method-naming.js';
+import { generateBaseFile } from './utils/file-generator.js';
 
 dotenv.config();
 
@@ -64,7 +64,7 @@ async function generateServices({ swaggerUrl, outputDir }: GenerateOptions): Pro
     serviceNames.push(serviceName);
 
     let content = `import { APIRequestContext } from '@playwright/test';\n\n`;
-    content += `export class ${serviceName} {\n  constructor(private request: APIRequestContext) {}\n`;
+    content += `export class ${serviceName} {\n`;
 
     for (const ep of endpoints) {
       const methodName = toCamelCaseMethodName(ep.method, ep.route, ep.operationId);
@@ -78,7 +78,7 @@ async function generateServices({ swaggerUrl, outputDir }: GenerateOptions): Pro
       const routeWithTemplate = ep.route.replace(/{(.*?)}/g, (_: any, p: any) => `\${${p}}`);
       const secondArg = needsData ? '{ data }' : '';
 
-      content += `\n  async ${methodName}(${paramsString}) {\n    const res = await this.request.${ep.method}(\`${routeWithTemplate}\`${secondArg ? `, ${secondArg}` : ''});\n    return res;\n  }\n`;
+      content += `\n  async ${methodName}(request: APIRequestContext, ${paramsString}) {\n    const res = request.${ep.method}(\`${routeWithTemplate}\`${secondArg ? `, ${secondArg}` : ''});\n    return res;\n  }\n`;
     }
 
     content += `}\n`;
