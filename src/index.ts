@@ -6,7 +6,6 @@ import { fileURLToPath } from 'url';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 import dotenv from 'dotenv';
-import { toCamelCaseMethodName } from './cleaner-method-names.js'
 
 // Load environment variables
 dotenv.config();
@@ -26,30 +25,69 @@ interface Arguments {
   'base-url'?: string;
 }
 
-// Parse command line arguments
-const argv = yargs(hideBin(process.argv))
-  .option('swagger-url', {
-    alias: 's',
-    type: 'string',
-    description: 'URL to the Swagger/OpenAPI specification',
-    default: process.env.SWAGGER_URL || 'https://petstore.swagger.io/v2/swagger.json'
-  })
-  .option('output-dir', {
-    alias: 'o',
-    type: 'string',
-    description: 'Output directory for generated services',
-    default: './services'
-  })
-  .option('base-url', {
-    alias: 'b',
-    type: 'string',
-    description: 'Base URL for the API (optional)',
-    default: process.env.API_BASE_URL
-  })
-  .help()
-  .parseSync() as Arguments;
+// -------------------
+// Utility functions
+// -------------------
 
-async function generateServices({ swaggerUrl, outputDir, baseUrl }: GenerateOptions) {
+function toCamelCase(name: string): string {
+  return name.charAt(0).toLowerCase() + name.slice(1);
+}
+
+export function toCamelCaseMethodName(
+  method: string,
+  route?: string,
+  operationId?: string
+): string {
+  if (operationId) return operationId;
+  if (!route) return method.toLowerCase(); // early return if route undefined
+
+  const cleanRoute = route.split('?')[0] ?? ''; // safe fallback
+
+  const parts = cleanRoute.split('/').filter(Boolean);
+
+  const nameParts = parts.map(p =>
+    p.startsWith('{') && p.endsWith('}') ? `By${p[1] ? p[1].toUpperCase() : ''}${p.slice(2, -1)}` :
+      p.replace(/[^a-zA-Z0-9]/g, '').replace(/^\w/, c => c.toUpperCase())
+  );
+
+  const rawName = method.toLowerCase() + nameParts.join('');
+  return rawName.charAt(0).toLowerCase() + rawName.slice(1);
+}
+
+
+// -------------------
+// Generate base.ts
+// -------------------
+
+function generateBaseFile(services: string[], testsDir: string) {
+  const outputPath = path.resolve(process.cwd(), testsDir);
+  if (!fs.existsSync(outputPath)) fs.mkdirSync(outputPath, { recursive: true });
+
+  let imports = `import { test as base } from '@playwright/test';\n`;
+  imports += services.map(s => `import { ${s} } from '../services/${s}';`).join('\n') + '\n\n';
+
+  let fixturesType = `type MyFixtures = {\n`;
+  fixturesType += services.map(s => `  ${toCamelCase(s)}: ${s};`).join('\n');
+  fixturesType += `\n};\n\n`;
+
+  let extendBlock = `export const test = base.extend<MyFixtures>({\n`;
+  extendBlock += services.map(s =>
+    `  ${toCamelCase(s)}: async ({ request }, use) => {\n    const service = new ${s}(request);\n    await use(service);\n  }`
+  ).join(',\n');
+  extendBlock += `\n});\n\n`;
+
+  extendBlock += `export { expect } from '@playwright/test';\n`;
+
+  const content = imports + fixturesType + extendBlock;
+  fs.writeFileSync(path.join(outputPath, 'base.ts'), content, 'utf8');
+}
+
+
+// -------------------
+// Generate services
+// -------------------
+
+async function generateServices({ swaggerUrl, outputDir, baseUrl }: GenerateOptions): Promise<string[]> {
   try {
     console.log(`🔍 Fetching Swagger spec from ${swaggerUrl}...`);
     const res = await fetch(swaggerUrl);
@@ -62,6 +100,7 @@ async function generateServices({ swaggerUrl, outputDir, baseUrl }: GenerateOpti
     console.log('✅ Successfully fetched Swagger spec');
 
     const services: Record<string, any[]> = {};
+    const serviceNames: string[] = [];
 
     // Group endpoints by tags
     for (const [route, methods] of Object.entries<any>(swagger.paths)) {
@@ -86,37 +125,31 @@ async function generateServices({ swaggerUrl, outputDir, baseUrl }: GenerateOpti
 
     // Generate service classes
     for (const [tag, endpoints] of Object.entries(services)) {
-      let content = `export class ${tag}Service {
-`;
+      const serviceName = `${tag}Service`;
+      serviceNames.push(serviceName);
+
+      let content = `import { APIRequestContext } from '@playwright/test';\n\n`;
+      content += `export class ${serviceName} {\n  constructor(private request: APIRequestContext) {}\n`;
 
       for (const ep of endpoints) {
-        // Sanitize method name
         const methodName = toCamelCaseMethodName(ep.method, ep.route, ep.operationId);
-
 
         // Detect path params
         const pathParamsMatches = [...ep.route.matchAll(/{(.*?)}/g)];
         const pathParams = pathParamsMatches.map(m => m[1]);
 
-        // Decide if this method needs a data parameter
         const needsData = ['post', 'put', 'patch'].includes(ep.method.toLowerCase());
 
-        // Build function parameter string
-        const paramsList = ['request', ...pathParams];
+        const paramsList = [...pathParams];
         if (needsData) paramsList.push('data?: any');
-
         const paramsString = paramsList.join(', ');
 
-        // Replace {param} with ${param} for template literals
         let routeWithTemplate = ep.route.replace(/{(.*?)}/g, (_: any, p: any) => `\${${p}}`);
-
-        // Build method body conditionally
         const secondArg = needsData ? '{ data }' : '';
 
-        // Construct method
         content += `
   async ${methodName}(${paramsString}) {
-    const res = await request.${ep.method}(\`${routeWithTemplate}\`${secondArg ? `, ${secondArg}` : ''});
+    const res = await this.request.${ep.method}(\`${routeWithTemplate}\`${secondArg ? `, ${secondArg}` : ''});
     return res;
   }
 `;
@@ -124,22 +157,63 @@ async function generateServices({ swaggerUrl, outputDir, baseUrl }: GenerateOpti
 
       content += `}
 `;
-      const outputPath = path.join(absoluteOutputDir, `${tag}Service.ts`);
+      const outputPath = path.join(absoluteOutputDir, `${serviceName}.ts`);
       fs.writeFileSync(outputPath, content, 'utf8');
-      console.log(`✅ Generated ${tag}Service in ${outputPath}`);
+      console.log(`✅ Generated ${serviceName} in ${outputPath}`);
     }
 
+    return serviceNames;
   } catch (error) {
     console.error('❌ Error generating services:', error);
     throw error;
   }
 }
 
-// Get options from command line arguments
-const options: GenerateOptions = {
-  swaggerUrl: argv['swagger-url'] as string,
-  outputDir: argv['output-dir'] as string,
-  baseUrl: argv['base-url'] as string
+// -------------------
+// CLI options
+// -------------------
+
+const argv = yargs(hideBin(process.argv))
+  .option('swagger-url', {
+    alias: 's',
+    type: 'string',
+    description: 'URL to the Swagger/OpenAPI specification',
+    default: process.env.SWAGGER_URL || 'https://petstore.swagger.io/v2/swagger.json'
+  })
+  .option('output-dir', {
+    alias: 'o',
+    type: 'string',
+    description: 'Output directory for generated services',
+    default: './services'
+  })
+  .option('base-url', {
+    alias: 'b',
+    type: 'string',
+    description: 'Base URL for the API (optional)',
+    default: process.env.API_BASE_URL
+  })
+  .help()
+  .parseSync() as Arguments;
+
+const options: any = {
+  swaggerUrl: argv['swagger-url'],
+  outputDir: argv['output-dir'],
+  baseUrl: argv['base-url']
 };
 
-generateServices(options).catch(console.error);
+// -------------------
+// Run generator
+// -------------------
+
+async function main() {
+  const serviceNames = await generateServices(options);
+
+  const testsDir = path.resolve(process.cwd(), 'tests');
+  generateBaseFile(serviceNames, testsDir);
+
+  console.log(`✅ Generated base.ts in ${testsDir}`);
+}
+
+main().catch(console.error);
+
+
