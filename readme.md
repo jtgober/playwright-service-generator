@@ -28,7 +28,7 @@ npx generate-services  --s YOUR-SWAGGER-JSON
 
 Given this swagger.json: 
 
-```http
+```
 https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json
 ```
 
