@@ -123,4 +123,3 @@ Example:
 ```bash
 npx generate-services  --s https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json --o new/folder/location
 ```
-![alt text](pngs/outDirExample.png)
