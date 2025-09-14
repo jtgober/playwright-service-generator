@@ -40,28 +40,34 @@ import { APIRequestContext } from '@playwright/test';
 
 export class ActivitiesService {
 
-  async getActivities(request: APIRequestContext, ) {
-    const res = request.get(`/api/v1/Activities`);
+  private request: APIRequestContext;
+
+  constructor(request: APIRequestContext) {
+    this.request = request;
+  }
+
+  async getActivities() {
+    const res = this.request.get(`/api/v1/Activities`);
     return res;
   }
 
-  async postActivities(request: APIRequestContext, data?: any) {
-    const res = request.post(`/api/v1/Activities`, { data });
+  async postActivities(data?: any) {
+    const res = this.request.post(`/api/v1/Activities`, { data });
     return res;
   }
 
-  async getActivitiesById(request: APIRequestContext, id) {
-    const res = request.get(`/api/v1/Activities/${id}`);
+  async getActivitiesById(id) {
+    const res = this.request.get(`/api/v1/Activities/${id}`);
     return res;
   }
 
-  async putActivitiesById(request: APIRequestContext, id, data?: any) {
-    const res = request.put(`/api/v1/Activities/${id}`, { data });
+  async putActivitiesById(id, data?: any) {
+    const res = this.request.put(`/api/v1/Activities/${id}`, { data });
     return res;
   }
 
-  async deleteActivitiesById(request: APIRequestContext, id) {
-    const res = request.delete(`/api/v1/Activities/${id}`);
+  async deleteActivitiesById(id) {
+    const res = this.request.delete(`/api/v1/Activities/${id}`);
     return res;
   }
 }
@@ -83,12 +89,12 @@ type MyFixtures = {
 };
 
 export const test = base.extend<MyFixtures>({
-  activitiesService: async ({ }, use) => {
-    const service = new ActivitiesService();
+  activitiesService: async ({ request }, use) => {
+    const service = new ActivitiesService(request);
     await use(service);
   },
-  authorsService: async ({ }, use) => {
-    const service = new AuthorsService();
+  authorsService: async ({ request }, use) => {
+    const service = new AuthorsService(request);
     await use(service);
   },
   //... all other services
@@ -103,8 +109,8 @@ export { expect } from '@playwright/test';
 //my-test.spec.ts
 import { test, expect } from './base';
 
-test('Sample test to verify setup', async ({ request, usersService }) => {
-    const response = await usersService.getUsers(request);
+test('Sample test to verify setup', async ({usersService }) => {
+    const response = await usersService.getUsers();
     expect(response.status()).toBe(200);
 });
 
