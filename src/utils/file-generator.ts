@@ -65,7 +65,7 @@ export const generateSkeletonTest = (testsDir: string) => {
 
 import { test, expect } from './base';
 
-test('Creating and updating a person should be successful', { tag: ['@smoke'] }, async ({ request }) => {
+test('Creating and updating a person should be successful', { tag: ['@smoke'] }, async ({ }) => {
   // Start creating tests here 
   expect(true).toBe(true);
 });
