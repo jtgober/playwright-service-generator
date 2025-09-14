@@ -22,20 +22,23 @@ interface GenerateOptions {
 interface Arguments {
   'swagger-url': string;
   'output-dir': string;
+  'merge': boolean;
 }
 
 const argv = yargs(hideBin(process.argv))
   .option('swagger-url', { alias: 's', type: 'string', default: process.env.SWAGGER_URL })
   .option('output-dir', { alias: 'o', type: 'string', default: './services' })
+  .option('merge', { alias: 'm', type: 'boolean', default: false, description: 'Merge with existing base.ts file instead of overwriting' })
   .help()
   .parseSync() as Arguments;
 
 const options: any = {
   swaggerUrl: argv['swagger-url'],
   outputDir: argv['output-dir'],
+  merge: argv['merge'],
 };
 
-async function generateServices({ swaggerUrl, outputDir }: GenerateOptions): Promise<string[]> {
+export async function generateServices({ swaggerUrl, outputDir }: GenerateOptions): Promise<string[]> {
   console.log(`🔍 Fetching Swagger spec from ${swaggerUrl}...`);
   const res = await fetch(swaggerUrl);
   if (!res.ok) throw new Error(`Failed to fetch Swagger spec: ${res.statusText}`);
@@ -47,9 +50,33 @@ async function generateServices({ swaggerUrl, outputDir }: GenerateOptions): Pro
 
   for (const [route, methods] of Object.entries<any>(swagger.paths)) {
     for (const [method, details] of Object.entries<any>(methods)) {
-      const tag = details.tags?.[0] || 'Default';
+      let tag = details.tags?.[0] || 'Default';
+      
+      // Extract version from route if present and merge flag is enabled
+      if (options.merge) {
+        const versionMatch = route.match(/\/(v\d+)\//);
+        if (versionMatch && versionMatch[1]) {
+          const version = versionMatch[1].replace('v', 'V'); // v1 -> V1, v2 -> V2
+          tag = `${tag}${version}`; // Users + V1 = UsersV1
+        }
+      }
+      
+      // Extract query parameters from the endpoint definition
+      const queryParams = (details.parameters || [])
+        .filter((param: any) => param.in === 'query')
+        .map((param: any) => ({
+          name: param.name,
+          required: param.required || false,
+          type: param.schema?.type || 'string'
+        }));
+      
       if (!services[tag]) services[tag] = [];
-      services[tag].push({ route, method, operationId: details.operationId });
+      services[tag]!.push({ 
+        route, 
+        method, 
+        operationId: details.operationId,
+        queryParams 
+      });
     }
   }
 
@@ -68,18 +95,37 @@ import { APIRequestContext } from '@playwright/test';\n\n`;
     content += `  constructor(request: APIRequestContext) {\n    this.request = request;\n  }\n`;
 
     for (const ep of endpoints) {
-      const methodName = toCamelCaseMethodName(ep.method, ep.route, ep.operationId);
+      const methodName = toCamelCaseMethodName(ep.method, ep.route, ep.operationId, options.merge);
       const pathParamsMatches = [...ep.route.matchAll(/{(.*?)}/g)];
       const pathParams = pathParamsMatches.map(m => m[1]);
       const needsData = ['post', 'put', 'patch'].includes(ep.method.toLowerCase());
+      
+      // Build parameters list: path params + query params + data
       const paramsList = [...pathParams];
+      
+      // Add query parameters to method signature
+      if (ep.queryParams && ep.queryParams.length > 0) {
+        ep.queryParams.forEach((qp: any) => {
+          const paramType = qp.required ? qp.name : `${qp.name}?`;
+          paramsList.push(`${paramType}: ${qp.type === 'integer' ? 'number' : 'string'}`);
+        });
+      }
+      
       if (needsData) paramsList.push('data?: any');
       const paramsString = paramsList.join(', ');
 
       const routeWithTemplate = ep.route.replace(/{(.*?)}/g, (_: any, p: any) => `\${${p}}`).replace(/^\//, '');
+      
+      // Build query string if query params exist
+      let urlTemplate = routeWithTemplate;
+      if (ep.queryParams && ep.queryParams.length > 0) {
+        const queryParts = ep.queryParams.map((qp: any) => `${qp.name}=\${${qp.name}}`);
+        urlTemplate = `${routeWithTemplate}?${queryParts.join('&')}`;
+      }
+      
       const secondArg = needsData ? '{ data }' : '';
 
-      content += `\n  async ${methodName}(${paramsString}) {\n    const res = this.request.${ep.method}(\`${routeWithTemplate}\`${secondArg ? `, ${secondArg}` : ''});\n    return res;\n  }\n`;
+      content += `\n  async ${methodName}(${paramsString}) {\n    const res = this.request.${ep.method}(\`${urlTemplate}\`${secondArg ? `, ${secondArg}` : ''});\n    return res;\n  }\n`;
     }
 
     content += `}\n`;
@@ -112,7 +158,7 @@ L             That'll be about tree fiddy....             L
 
   const serviceNames = await generateServices(options);
   const testsDir = path.resolve(process.cwd(), 'tests');
-  generateBaseFile(serviceNames, testsDir);
+  generateBaseFile(serviceNames, testsDir, options.outputDir, options.merge);
   console.log(`✅ Generated base.ts in ${testsDir}`);
   //generateSkeletonTest(testsDir);
   console.log(`✅ Generated skeleton-test.ts in ${testsDir}`);
