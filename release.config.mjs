@@ -1,8 +1,8 @@
-module.exports = {
-  branches: ["main"], // release only from main branch
+export default {
+  branches: ["main"],
   plugins: [
-    "@semantic-release/commit-analyzer",      // figure out patch/minor/major
-    "@semantic-release/release-notes-generator", // generate release notes for npm
-    "@semantic-release/npm"                    // publish to npm
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/npm"
   ],
 };
