@@ -11,7 +11,10 @@
     "build": "tsc",
     "generate": "tsx src/index.ts --swaggerUrl https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json",
     "prepare": "npm run build",
-    "test": "playwright test"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch",
+
   },
   "author": "",
   "license": "ISC",
@@ -21,7 +24,9 @@
     "@types/yargs": "^17.0.32",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.1",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.4",
   },
   "dependencies": {
     "dotenv": "^16.0.0",
