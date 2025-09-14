@@ -1,6 +1,6 @@
 {
   "name": "@jtgober/playwright-service-generator",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Generates Playwright API services from Swagger/OpenAPI specifications",
   "main": "dist/src/index.js",
   "type": "module",
