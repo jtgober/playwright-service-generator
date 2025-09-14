@@ -160,7 +160,7 @@ L             That'll be about tree fiddy....             L
   const testsDir = path.resolve(process.cwd(), 'tests');
   generateBaseFile(serviceNames, testsDir, options.outputDir, options.merge);
   console.log(`✅ Generated base.ts in ${testsDir}`);
-  //generateSkeletonTest(testsDir);
+  generateSkeletonTest(testsDir);
   console.log(`✅ Generated skeleton-test.ts in ${testsDir}`);
 }
 
