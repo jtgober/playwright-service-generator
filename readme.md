@@ -123,3 +123,35 @@ Example:
 ```bash
 npx generate-services  --s https://fakerestapi.azurewebsites.net/swagger/v1/swagger.json --o new/folder/location
 ```
+
+## Additional Option: merge
+
+When working with APIs that have multiple versions (v1, v2, etc.), you can use the merge option to preserve existing service files and create versioned service names.
+
+```bash
+--merge
+## or alias
+-m
+```
+
+**Without merge (default behavior):**
+- Routes like `/v1/users` and `/v2/users` both create `UsersService`
+- Later versions overwrite earlier ones
+- Only the last version's service file remains
+
+**With merge:**
+- Routes like `/v1/users` create `UsersV1Service` 
+- Routes like `/v2/users` create `UsersV2Service`
+- Routes without versions (like `/orders`) create `OrdersService`
+- All service files are preserved
+- Existing `base.ts` file is preserved and updated with new services
+
+Example:
+```bash
+npx generate-services --s https://api.example.com/swagger.json --m
+```
+
+This is particularly useful when:
+- Your API has multiple versions you want to test
+- You have existing service files you don't want to overwrite
+- You want to maintain backward compatibility with older API versions
